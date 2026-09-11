@@ -1,2 +1,15 @@
-# Merges to protected branches need sign-off from an org owner.
-* @dhh @ryanrhughes
+# This repository is a fork of omacom/omarchy carrying the Omarchy Fleet work.
+# Upstream's maintainers do not review it, so the inherited entry naming them
+# is gone: it could never be satisfied here, and it implied a review that was
+# never offered.
+* @TechLuddite
+
+# Paths where one merge reaches every machine in every fleet. They name the
+# same owner as everything else today, on purpose: the second reviewer turns on
+# here first the day there is a second maintainer, and the list is easier to
+# write now than to remember later.
+/bin/omarchy-fleet* @TechLuddite
+/bin/omarchy-profile-fleet @TechLuddite
+/install/helpers/ @TechLuddite
+/install/config/fleet.sh @TechLuddite
+/plans/fleet-*.md @TechLuddite

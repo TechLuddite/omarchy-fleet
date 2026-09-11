@@ -1,47 +1,17 @@
-# Security at Omarchy
+# Security
 
-## Report a vulnerability
+This repository is a fork of [omacom/omarchy](https://github.com/omacom/omarchy) carrying the Omarchy Fleet work. It is not Omarchy, and reports about it do not reach Omarchy's maintainers.
 
-If you believe you’ve found a security vulnerability in Omarchy, please tell the [Omarchy Security Team](https://omarchy.org/teams/#security) privately so we have an opportunity to investigate and fix it before it is made public.
+## Report a vulnerability in the fleet code
 
-[security@omarchy.org](mailto:security@omarchy.org?subject=Security%20report)
+Use this repository's Security tab and choose "Report a vulnerability", which opens a private advisory that only the maintainers of this fork can read. Please do not open a public issue for something exploitable.
 
-Please don’t report potential vulnerabilities publicly in GitHub Issues, Discord, or social media before they’ve been resolved.
+The fleet code is the part that is specific to this fork: `bin/omarchy-fleet*`, `bin/omarchy-profile-fleet`, `install/helpers/fleet.sh`, `install/config/fleet.sh`, and their tests and plans.
 
-## What is a vulnerability?
+## Report a vulnerability in Omarchy itself
 
-We consider a bug a security vulnerability when it can be exploited to cross a meaningful security boundary: an untrusted or lower-privileged party gains access, permissions, or control they didn’t already have.
+Everything else here is upstream's code. Report it to the [Omarchy Security Team](https://omarchy.org/teams/#security) at [security@omarchy.org](mailto:security@omarchy.org?subject=Security%20report), so the fix reaches every Omarchy user rather than only this fork.
 
-Code that could be more robust but does not cross a security boundary is an improvement rather than a security vulnerability. We may still merge a proposed fix and credit the reporter in our release notes.
+## What this fork does not do yet
 
-Eligibility for our [security credits](https://omarchy.org/security/credits/) page depends on whether a report identifies a confirmed security vulnerability, not on its severity.
-
-## What to include
-
-Give us enough information to understand and reproduce the issue:
-
-- The affected component and Omarchy version.
-- An explanation of what an attacker can do before and after exploitation.
-- Steps to reproduce the issue and any proof of concept.
-- Your preferred contact details for follow-up.
-
-## Responsible disclosure
-
-Please act in good faith while investigating and reporting vulnerabilities:
-
-- Only test systems and accounts you own or have explicit permission to test.
-- Avoid privacy violations, disruption, data destruction, and service degradation.
-- Don’t exploit a vulnerability beyond what is needed to demonstrate it.
-- Give us a reasonable opportunity to investigate and address the issue before publishing details.
-
-We’ll review your report and keep you informed as we’re able while we work toward a resolution.
-
-## Credits
-
-Researchers who privately report a confirmed security vulnerability and give us the chance to ship a fix are thanked on the [security credits](https://omarchy.org/security/credits/) page. Accepted improvements that don’t cross a security boundary may still be credited in our release notes.
-
-Credits link to each reporter’s X profile and show their avatar. For duplicate reports, only the first reporter is eligible for credit.
-
-## Regular bugs and support
-
-For anything that isn’t a security vulnerability, please use the [Omarchy issue tracker](https://github.com/omacom/omarchy/issues).
+No fleet configuration is fetched, verified or applied by any released code here. A machine can record where its configuration will come from and nothing reads that record. Signature verification is the trust boundary once it exists, and until then nothing in this repository acts on a remote source.
