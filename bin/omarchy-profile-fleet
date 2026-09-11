@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true when this machine is enrolled in a fleet
+
+# Fleet enrolment is recorded in /etc/omarchy/fleet.conf, written by
+# `omarchy fleet enroll`. A machine is enrolled exactly when that file exists
+# and names a config_url, so no file means not enrolled, which is a complete
+# answer rather than an ambiguous one. It sits in /etc, so it rides the
+# @factory snapshot and a factory reset leaves a managed machine managed.
+#
+# Separate from /etc/omarchy/profile on purpose: that marker holds one word
+# from a closed list, and a school laptop is a child install and a fleet
+# machine at the same time. Two predicates compose in a menu guard where two
+# values of one word cannot.
+#
+# The check goes through the shared helper so this and every fleet command
+# agree on what enrolled means.
+
+OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+fleet_helper="$OMARCHY_PATH/install/helpers/fleet.sh"
+
+# Menu guards run this, so a machine whose helper is missing should answer "not
+# enrolled" rather than print an error behind the menu. Such a machine cannot
+# be enrolled anyway: the command that would write the record reads the same
+# file.
+[[ -r $fleet_helper ]] || exit 1
+
+source "$fleet_helper"
+
+fleet_enrolled
