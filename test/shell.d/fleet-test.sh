@@ -145,3 +145,139 @@ helper fleet_conf_remove
 predicate && fail "a removed record means not enrolled"
 helper fleet_conf_remove || fail "removing a record that is already gone is not an error"
 pass "the record can be removed, and removing it twice is not an error"
+
+# --- the command -------------------------------------------------------------
+
+export PATH="$ROOT/bin:$PATH"
+
+fleet() {
+  OMARCHY_FLEET_CONF="$conf" OMARCHY_PATH="$ROOT" "$ROOT/bin/omarchy-fleet" "$@"
+}
+
+# enroll and leave write under /etc, so they check for root and otherwise
+# re-exec under sudo. Reach them as namespaced root, the way dns-sudoers-test
+# does, and skip where a sandbox or a hardened kernel refuses user namespaces:
+# a skip is a passing test on a machine that cannot run it.
+root_runner=()
+can_be_root=0
+if (( EUID == 0 )); then
+  can_be_root=1
+elif unshare --user --map-root-user true 2>/dev/null; then
+  root_runner=(unshare --user --map-root-user)
+  can_be_root=1
+fi
+
+root_fleet() {
+  "${root_runner[@]}" env OMARCHY_FLEET_CONF="$conf" OMARCHY_PATH="$ROOT" \
+    "$ROOT/bin/omarchy-fleet" "$@"
+}
+
+reset_conf
+fleet --help >/dev/null || fail "--help exits cleanly"
+fleet >/dev/null 2>&1 && fail "no subcommand is an error"
+fleet nonsense >/dev/null 2>&1 && fail "an unknown subcommand is an error"
+pass "help, no subcommand, and an unknown subcommand each answer correctly"
+
+reset_conf
+status=$(fleet status) || fail "status on an unenrolled machine exits 0"
+[[ $status == *"Enrolled     no"* ]] || fail "status says it is not enrolled" "$status"
+[[ $status == *"omarchy fleet enroll"* ]] || fail "status says how to enrol" "$status"
+[[ ! -f $conf ]] || fail "status writes nothing"
+pass "status on an unenrolled machine reports and writes nothing"
+
+if (( can_be_root == 0 )); then
+  pass "no way to reach root; skipping the enroll and leave cases"
+  exit 0
+fi
+
+# A first enrolment must name both, because a machine enrolled without a
+# signing key would need an exception the day verification becomes the default.
+
+reset_conf
+root_fleet enroll --signing-key ABCD1234 >/dev/null 2>&1 &&
+  fail "enrolling without a config URL is refused"
+root_fleet enroll --config-url https://example.org/fleet.git >/dev/null 2>&1 &&
+  fail "enrolling without a signing key is refused"
+[[ ! -f $conf ]] || fail "a refused enrolment writes nothing" "$(cat "$conf")"
+pass "a first enrolment needs both a config URL and a signing key"
+
+reset_conf
+for bad in "not a url" "ftp://example.org/x.git" "https://example.org"; do
+  root_fleet enroll --config-url "$bad" --signing-key ABCD1234 >/dev/null 2>&1 &&
+    fail "a config URL that is not a git URL is refused: $bad"
+done
+root_fleet enroll --config-url https://example.org/fleet.git --signing-key 'bad key!' >/dev/null 2>&1 &&
+  fail "a signing key that is not a fingerprint is refused"
+root_fleet enroll --config-url https://example.org/fleet.git --signing-key ABCD1234 \
+  --user-config sometimes >/dev/null 2>&1 && fail "an unknown user config mode is refused"
+root_fleet enroll --config-url https://example.org/fleet.git --signing-key ABCD1234 \
+  --roles "kiosk bad/role" >/dev/null 2>&1 && fail "a role that is not a word is refused"
+root_fleet enroll --config-url https://example.org/fleet.git --signing-key ABCD1234 \
+  --host-id "till 1" >/dev/null 2>&1 && fail "a host id with a space is refused"
+[[ ! -f $conf ]] || fail "no rejected value leaves a half-written record" "$(cat "$conf")"
+pass "every value is checked before anything is written"
+
+reset_conf
+root_fleet enroll --config-url "git@github.com:example/fleet.git" --signing-key ABCD1234 >/dev/null ||
+  fail "an scp-form git URL enrols"
+[[ $(helper fleet_conf_get config_url) == "git@github.com:example/fleet.git" ]] ||
+  fail "the scp-form URL is recorded verbatim"
+pass "an scp-form git URL is accepted and recorded verbatim"
+
+reset_conf
+root_fleet enroll --config-url https://example.org/fleet.git --signing-key ABCD1234 >/dev/null ||
+  fail "a valid enrolment succeeds"
+predicate || fail "an enrolled machine answers the predicate"
+[[ $(helper fleet_conf_get host_id) == "$(uname -n)" ]] ||
+  fail "host id defaults to the hostname and is pinned" "$(helper fleet_conf_get host_id)"
+[[ $(helper fleet_conf_get user_config) == "delegated" ]] ||
+  fail "user config defaults to delegated" "$(helper fleet_conf_get user_config)"
+pass "enrolling records the values and pins the defaults"
+
+status=$(fleet status)
+[[ $status == *"Enrolled     yes"* ]] || fail "status reports enrolled" "$status"
+[[ $status == *"https://example.org/fleet.git"* ]] || fail "status shows the config URL" "$status"
+[[ $status == *"Nothing has been fetched, verified or applied"* ]] ||
+  fail "status says nothing has been applied" "$status"
+pass "status reports the record and says nothing has been applied"
+
+changes=$(root_fleet enroll --config-url https://example.org/fleet.git --signing-key ABCD1234)
+[[ $changes != *"config_url="* ]] || fail "a repeated enrolment reports no change" "$changes"
+pass "enrolling twice with the same values changes nothing"
+
+changes=$(root_fleet enroll --roles "kiosk backup-target")
+[[ $changes == *"roles=kiosk backup-target"* ]] || fail "a later enrolment can set roles" "$changes"
+[[ $(helper fleet_conf_get config_url) == "https://example.org/fleet.git" ]] ||
+  fail "a later enrolment leaves the other values alone"
+[[ $(helper fleet_conf_get user_config) == "delegated" ]] ||
+  fail "a later enrolment leaves the defaults alone"
+pass "a later enrolment changes only what it is given"
+
+changes=$(root_fleet enroll --user-config managed)
+[[ $changes == *"user_config=managed"* ]] || fail "the user config mode can be changed" "$changes"
+[[ $(helper fleet_conf_get roles) == "kiosk backup-target" ]] ||
+  fail "changing one key leaves the last one alone"
+pass "the recorded user config mode can be changed"
+
+left=$(root_fleet leave)
+[[ $left == *"no longer records"* ]] || fail "leave says what it removed" "$left"
+[[ ! -f $conf ]] || fail "leave removes the record"
+predicate && fail "a machine that left is not enrolled"
+left=$(root_fleet leave)
+[[ $left == *"nothing to remove"* ]] || fail "leaving twice is not an error" "$left"
+pass "leave removes the record, and leaving twice is not an error"
+
+# A feature or provider plugs in as a binary on the path, never as an edit to
+# the command that dispatches to it.
+reset_conf
+mkdir -p "$work/bin"
+cat >"$work/bin/omarchy-fleet-demo" <<'DEMO'
+#!/bin/bash
+# omarchy:summary=A stand-in feature command
+echo "demo ran with: $*"
+DEMO
+chmod +x "$work/bin/omarchy-fleet-demo"
+dispatched=$(PATH="$work/bin:$PATH" fleet demo one two)
+[[ $dispatched == "demo ran with: one two" ]] ||
+  fail "an unknown subcommand reaches its feature command" "$dispatched"
+pass "a feature command is reached by adding a binary, not by editing the dispatcher"
