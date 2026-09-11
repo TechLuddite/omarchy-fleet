@@ -117,6 +117,11 @@ New Omarchy shell tests should live in `test/shell.d/*-test.sh` so `./test/shell
 The graphical acceptance suite runs in a disposable VM, not in the active
 development session; see [`agents/skills/acceptance-tests.md`](agents/skills/acceptance-tests.md).
 
+`./test/shell` and `./test/all` are VM-free but not session-free: the
+compositor-gated files launch Quickshell against whatever Wayland session is
+reachable, which on a workstation is the one you are using. Run them in a VM or
+over SSH, and on your own desktop run only the file for the area you changed.
+
 Visual changes must be verified in the running UI in addition to automated
 tests; follow [`agents/skills/visual-verification.md`](agents/skills/visual-verification.md).
 
