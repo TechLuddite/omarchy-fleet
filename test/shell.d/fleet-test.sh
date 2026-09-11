@@ -281,3 +281,50 @@ dispatched=$(PATH="$work/bin:$PATH" fleet demo one two)
 [[ $dispatched == "demo ran with: one two" ]] ||
   fail "an unknown subcommand reaches its feature command" "$dispatched"
 pass "a feature command is reached by adding a binary, not by editing the dispatcher"
+
+# --- the install leaf --------------------------------------------------------
+
+# The leaf is sourced during installation, so it is exercised the same way,
+# against a stub command that records what it was asked to do.
+leaf() {
+  local log="$work/enroll.log"
+  rm -f "$log"
+  mkdir -p "$work/stub"
+  cat >"$work/stub/omarchy-fleet" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >"$log"
+STUB
+  chmod +x "$work/stub/omarchy-fleet"
+  (
+    export PATH="$work/stub:$PATH"
+    # shellcheck source=/dev/null
+    source "$ROOT/install/config/fleet.sh"
+  )
+  cat "$log" 2>/dev/null || true
+}
+
+reset_conf
+called=$(env -u OMARCHY_FLEET_CONFIG_URL bash -c "$(declare -f leaf); work=$work; ROOT=$ROOT; leaf")
+[[ -z $called ]] || fail "the leaf does nothing when the installer set no fleet" "$called"
+pass "the install leaf does nothing on a machine installed outside a fleet"
+
+called=$(
+  OMARCHY_FLEET_CONFIG_URL=https://example.org/fleet.git \
+  OMARCHY_FLEET_SIGNING_KEY=ABCD1234 \
+    bash -c "$(declare -f leaf); work=$work; ROOT=$ROOT; leaf"
+)
+[[ $called == "enroll --config-url https://example.org/fleet.git --signing-key ABCD1234" ]] ||
+  fail "the leaf enrols from the installer's environment" "$called"
+pass "the install leaf enrols from what the installer recorded"
+
+called=$(
+  OMARCHY_FLEET_CONFIG_URL=https://example.org/fleet.git \
+  OMARCHY_FLEET_SIGNING_KEY=ABCD1234 \
+  OMARCHY_FLEET_HOST_ID=till-01 \
+  OMARCHY_FLEET_ROLES="kiosk backup-target" \
+  OMARCHY_FLEET_USER_CONFIG=managed \
+    bash -c "$(declare -f leaf); work=$work; ROOT=$ROOT; leaf"
+)
+[[ $called == "enroll --config-url https://example.org/fleet.git --signing-key ABCD1234 --host-id till-01 --roles kiosk backup-target --user-config managed" ]] ||
+  fail "the leaf passes every value the installer set" "$called"
+pass "the install leaf passes every value the installer set"
