@@ -311,7 +311,8 @@ finalization. It sources:
 
 - `install/config/all.sh` — theme links, lockout limits, lockscreen PAM,
   powerprofilesctl shebang fix, SSH command path and keepalive, docker setup,
-  Snapper retention, locate index tuning, service enablement, firewall.
+  Snapper retention, locate index tuning, service enablement, firewall, fleet
+  enrolment.
 - `install/hardware/all.sh` via `omarchy-apply-hardware` — vendor- and
   device-specific kernel modules, udev rules, microcode, wireless regdom,
   ASUS / Framework / Intel / Apple / Lenovo quirks.
@@ -355,6 +356,7 @@ return to the packaged default.
 | Per-user file that's static but lives outside `~/.config` | `default/`, then add `install -Dm644 ... $pkgdir/etc/skel/...` in `omarchy-settings` PKGBUILD |
 | Runtime tweak that needs `$HOME` or live system state | extend `omarchy-provision-user`, or add a per-user leaf under `install/user/` and wire into `install/user/all.sh` |
 | One-time root-side setup step | `install/config/*.sh` or `install/hardware/*.sh`, wire into `install/config/all.sh` or `install/hardware/all.sh` |
+| Gate something on this machine being fleet-managed | `omarchy-profile-fleet`; the record is `/etc/omarchy/fleet.conf`, written by `omarchy fleet enroll` |
 | One-time fix for existing installs | `migrations/<unix-timestamp>.sh` |
 | Package-owned path something else may already write | Prefer a path nothing else writes, such as a vendor drop-in under `/usr/lib`. Otherwise the `--overwrite` entry in `bin/omarchy-update-system-pkgs` has to ship a release before the file |
 | User-facing `omarchy-*` command | `bin/omarchy-<group>-<verb>` — see `GROUP_DESCRIPTIONS` in `bin/omarchy` |

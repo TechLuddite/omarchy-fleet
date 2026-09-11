@@ -106,6 +106,8 @@ Omarchy is built on:
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
 | **Omarchy OSD** | On-screen display | Quickshell plugin |
 
+This machine may also be enrolled in a fleet, meaning its configuration is managed from a shared repository. `omarchy-profile-fleet` succeeds when it is, and `omarchy fleet status` reports what it recorded in `/etc/omarchy/fleet.conf`. Nothing is fetched or applied from that record yet, so treat it as a statement of where configuration will come from rather than as something already in force.
+
 ## Command Discovery
 
 Omarchy ships a single `omarchy` CLI that dispatches to all `omarchy-*` binaries via `omarchy <group> <action>`. Always prefer this form — it is self-documenting and stable. The underlying `omarchy-*` binaries still exist on `PATH` and remain safe to read for source.
