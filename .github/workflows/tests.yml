@@ -1,0 +1,35 @@
+# The fast, session-free part of the test suite, run on every pull request.
+#
+# Deliberately narrow. ./test/shell is VM-free but not session-free: sixteen of
+# its files are gated on a reachable compositor and fourteen of those launch a
+# real Quickshell against it. A GitHub runner has none, so they would skip and
+# pass while proving nothing, and many of the rest assume an Arch desktop this
+# container does not have. A check that is green and means something beats a
+# check that is red and gets ignored. Widen it by naming files here as they are
+# shown to pass.
+name: Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fast-suites:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      # Pinned by commit rather than tag: a tag can be moved to point at other
+      # code, and this job reads the repository it is testing.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install what the suites call
+        run: pacman -Sy --noconfirm --needed git nodejs jq ripgrep python
+
+      - name: CLI routing and command metadata
+        run: ./test/cli
+
+      - name: Fleet enrolment
+        run: bash test/shell.d/fleet-test.sh
