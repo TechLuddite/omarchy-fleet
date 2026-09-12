@@ -24,6 +24,14 @@ Sometimes you want `sudo` to stop asking, most often when an AI agent is doing a
 
 Be clear-eyed about this one: while it's on, anything running as your user can do anything as root without being asked. That's the whole point, and it's also the whole risk.
 
+## Fleet enrolment
+
+A machine can be managed as part of a fleet, where an organisation, a school or a family keeps the configuration for several machines in one place. _Setup > Fleet_ shows what this machine recorded, and the entry only appears on a machine that is enrolled.
+
+What it records lives in `/etc/omarchy/fleet.conf`: where the configuration comes from, the fingerprint of the key that has to sign it, what this host is called there, and what it is for. Any user of the machine can read that file, and that's deliberate. There's nothing secret in it, and finding out that the machine you're using is managed shouldn't take detective work.
+
+Being enrolled doesn't yet change anything on the machine. Nothing is downloaded, nothing is checked, and nothing is applied. Today the record only says where those things will come from.
+
 ## Signing Keys
 
 The public key for all ISO signatures and Omarchy repo package is `40DFB630FF42BCFFB047046CF0134EE680CAC571` ([verify at openpgp.org](https://keys.openpgp.org/search?q=pkgs%40omarchy.org)). The `omarchy/omarchy-keyring` package contains this as well and will be used to rollout any potential updates seamlessly.

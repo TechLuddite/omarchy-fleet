@@ -1,0 +1,289 @@
+#!/bin/bash
+
+# omarchy:summary=Fleet enrolment and status
+# omarchy:args=<status|enroll|leave|FEATURE> ...
+# omarchy:examples=omarchy fleet status | sudo omarchy fleet enroll --config-url URL --signing-key FINGERPRINT
+# omarchy:requires-sudo=true
+
+# This machine's side of a fleet. `enroll` records where its configuration
+# comes from, which key signs it, what this host is called there, and what it
+# is for; `status` reports that back; `leave` removes it.
+#
+# Nothing here fetches, verifies or applies anything. The record is a claim
+# about where configuration will come from, not a decision to trust it: that
+# is signature verification, and it arrives with the code that first reads the
+# repository.
+#
+# `status` needs no root and no network. `enroll` and `leave` write under /etc,
+# so a bare invocation re-execs itself under sudo, forwarding the installation
+# path and the caller's gum styling so the same checkout and theme survive an
+# env_reset sudoers.
+
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+Usage: omarchy fleet status
+       sudo omarchy fleet enroll --config-url URL --signing-key FINGERPRINT
+                                 [--host-id NAME] [--roles "WORD WORD"]
+                                 [--user-config managed|delegated|free]
+       sudo omarchy fleet leave
+
+status  Report whether this machine is enrolled and what it recorded. Needs no
+        root and reaches no network.
+enroll  Record the enrolment, or change part of one that already exists. Every
+        value is checked before anything is written. Running it twice with the
+        same arguments changes nothing.
+leave   Remove the record. This machine stops calling itself managed.
+
+--config-url    Where this machine's fleet configuration lives.
+--signing-key   Fingerprint of the key whose signatures will be required before
+                any configuration is applied. Recorded now so that no machine is
+                ever enrolled without one.
+--host-id       What this host is called in that configuration. Defaults to the
+                system hostname at enrolment, and is pinned, so renaming the
+                machine later does not silently change which configuration
+                applies to it.
+--roles         What this host is for, as space-separated words, such as
+                "kiosk backup-target". Claims about this host only; a role never
+                names another machine.
+--user-config   How much of the user's configuration the fleet owns: managed,
+                delegated or free. Defaults to delegated. Recorded and, for now,
+                enforced by nothing.
+USAGE
+  local features
+  features=$(feature_commands)
+  if [[ -n $features ]]; then
+    echo
+    echo "Features, each with its own command:"
+    printf '%s\n' "$features" | awk -F'\t' '{ printf "  %-10s %s\n", $1, $2 }'
+  fi
+}
+
+OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+
+# Features and providers live beside this command as omarchy-fleet-<name>, so a
+# later phase adds one by adding a binary rather than by editing this file. The
+# omarchy router resolves `omarchy fleet <name>` to the same binary on its own.
+feature_commands() {
+  local path name
+  for path in "$OMARCHY_PATH"/bin/omarchy-fleet-*; do
+    [[ -x $path ]] || continue
+    grep -q '^# omarchy:hidden=true' "$path" && continue
+    name=${path##*/omarchy-fleet-}
+    printf '%s\t%s\n' "$name" "$(sed -n 's/^# omarchy:summary=//p' "$path" | head -1)"
+  done
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  status|enroll|leave) ;;
+  "")
+    usage >&2
+    exit 1
+    ;;
+  *)
+    if omarchy-cmd-present "omarchy-fleet-$1"; then
+      feature="omarchy-fleet-$1"
+      shift
+      exec "$feature" "$@"
+    else
+      echo "Unknown command: $1" >&2
+      usage >&2
+      exit 1
+    fi
+    ;;
+esac
+
+# FLEET_CONF and the record's readers and writers, shared with the predicate
+# and with every feature command.
+source "$OMARCHY_PATH/install/helpers/fleet.sh"
+
+fail() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+command=$1
+shift
+
+# Every value is checked before the first write, so a rejected enrolment leaves
+# the machine exactly as it was rather than half-enrolled.
+validate_config_url() {
+  local value="$1"
+
+  [[ -n $value ]] || fail "--config-url cannot be empty"
+  [[ $value != *[[:space:]]* ]] || fail "--config-url cannot contain whitespace: $value"
+  [[ $value =~ ^(https?|ssh|git|file)://[^/]+/.+ || $value =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:.+ ]] ||
+    fail "--config-url is not a git URL: $value"
+}
+
+validate_signing_key() {
+  local value="$1"
+
+  [[ -n $value ]] || fail "--signing-key cannot be empty"
+  [[ $value =~ ^[A-Za-z0-9:+/=_-]+$ ]] || fail "--signing-key is not a fingerprint: $value"
+}
+
+validate_host_id() {
+  local value="$1"
+
+  [[ -n $value ]] || fail "--host-id cannot be empty"
+  [[ $value =~ ^[A-Za-z0-9._-]+$ ]] || fail "--host-id may hold only letters, digits, dot, dash and underscore: $value"
+}
+
+validate_roles() {
+  local value="$1" role
+
+  for role in $value; do
+    [[ $role =~ ^[A-Za-z0-9._-]+$ ]] ||
+      fail "a role may hold only letters, digits, dot, dash and underscore: $role"
+  done
+}
+
+validate_user_config() {
+  local value="$1"
+
+  case $value in
+    managed|delegated|free) ;;
+    *) fail "--user-config must be managed, delegated or free: $value" ;;
+  esac
+}
+
+show_status() {
+  if ! fleet_enrolled; then
+    cat <<'STATUS'
+Fleet enrolment
+
+  Enrolled     no
+
+This machine is not enrolled. Record where its configuration comes from with
+`sudo omarchy fleet enroll --config-url URL --signing-key FINGERPRINT`.
+STATUS
+    return 0
+  fi
+
+  echo "Fleet enrolment"
+  echo
+  printf '  %-12s %s\n' "Enrolled" "yes"
+  printf '  %-12s %s\n' "Config" "$(fleet_conf_get config_url)"
+  printf '  %-12s %s\n' "Signing key" "$(fleet_conf_get signing_key)"
+  printf '  %-12s %s\n' "Host" "$(fleet_conf_get host_id)"
+  printf '  %-12s %s\n' "Roles" "$(fleet_conf_get roles "(none)")"
+  printf '  %-12s %s\n' "User config" "$(fleet_conf_get user_config delegated)"
+  printf '  %-12s %s\n' "Record" "$FLEET_CONF"
+  echo
+
+  # Said plainly and every time. A status screen listing a URL beside the word
+  # enrolled reads as an endorsement of that URL unless it says otherwise, and
+  # in this phase nothing has looked at it.
+  echo "Nothing has been fetched, verified or applied. This machine records where"
+  echo "its configuration comes from; reading it comes later."
+}
+
+if [[ $command == "status" ]]; then
+  show_status
+  exit 0
+fi
+
+if (( EUID != 0 )); then
+  mapfile -t gum_env < <(env | grep '^GUM_' || true)
+  exec sudo env OMARCHY_PATH="$OMARCHY_PATH" "${gum_env[@]}" "$0" "$command" "$@"
+fi
+
+if [[ $command == "leave" ]]; then
+  if ! fleet_enrolled; then
+    echo "This machine is not enrolled; nothing to remove."
+    exit 0
+  fi
+
+  config_url=$(fleet_conf_get config_url)
+  fleet_conf_remove || fail "could not remove $FLEET_CONF"
+  echo "Removed $FLEET_CONF. This machine no longer records $config_url as its fleet."
+  exit 0
+fi
+
+config_url=""
+signing_key=""
+host_id=""
+roles=""
+user_config=""
+roles_given=0
+
+while (($#)); do
+  case $1 in
+    --config-url)
+      config_url="${2:-}"
+      shift 2
+      ;;
+    --signing-key)
+      signing_key="${2:-}"
+      shift 2
+      ;;
+    --host-id)
+      host_id="${2:-}"
+      shift 2
+      ;;
+    --roles)
+      roles="${2:-}"
+      roles_given=1
+      shift 2
+      ;;
+    --user-config)
+      user_config="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+# A first enrolment must name both, since a machine enrolled without a signing
+# key would need an exception the moment verification becomes the default. A
+# later enroll changes only what it is given.
+if ! fleet_enrolled; then
+  [[ -n $config_url ]] || fail "--config-url is required to enroll this machine"
+  [[ -n $signing_key ]] || fail "--signing-key is required to enroll this machine"
+  [[ -n $host_id ]] || host_id=$(uname -n)
+  [[ -n $user_config ]] || user_config="delegated"
+fi
+
+[[ -z $config_url ]] || validate_config_url "$config_url"
+[[ -z $signing_key ]] || validate_signing_key "$signing_key"
+[[ -z $host_id ]] || validate_host_id "$host_id"
+(( roles_given == 0 )) || validate_roles "$roles"
+[[ -z $user_config ]] || validate_user_config "$user_config"
+
+record() {
+  local key="$1" value="$2" comment="$3" previous
+
+  previous=$(fleet_conf_get "$key")
+  fleet_conf_document "$key" "$value" "$comment" || fail "could not write $key to $FLEET_CONF"
+  fleet_conf_set "$key" "$value" || fail "could not write $key to $FLEET_CONF"
+
+  if [[ $previous != "$value" ]]; then
+    printf '  %s=%s\n' "$key" "$value"
+  fi
+}
+
+echo "Enrolling $(uname -n) in a fleet:"
+
+[[ -z $config_url ]] ||
+  record config_url "$config_url" "Where this machine's fleet configuration lives."
+[[ -z $signing_key ]] ||
+  record signing_key "$signing_key" "Fingerprint of the key whose signatures are required before any configuration is applied."
+[[ -z $host_id ]] ||
+  record host_id "$host_id" "What this host is called in that configuration. Pinned at enrolment, so renaming the machine does not change it."
+(( roles_given == 0 )) ||
+  record roles "$roles" "What this host is for, space separated. Claims about this host only."
+[[ -z $user_config ]] ||
+  record user_config "$user_config" "How much of the user's configuration the fleet owns: managed, delegated or free."
+
+echo
+echo "Recorded in $FLEET_CONF. Nothing has been fetched, verified or applied."
