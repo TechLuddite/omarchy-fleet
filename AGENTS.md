@@ -1,8 +1,16 @@
+# This is a fork
+
+This repository mirrors `omacom/omarchy` and carries the Omarchy Fleet work. `quattro`
+is a pure upstream mirror and must never be committed to. `fleet-main` is the default
+branch and where changes land. Read
+[`agents/skills/fleet.md`](agents/skills/fleet.md) before your first commit.
+
 # Task Guides
 
 Deeper instructions for specific kinds of work live in `agents/skills/`. Read the
 matching guide before starting:
 
+- [`agents/skills/fleet.md`](agents/skills/fleet.md) - this fork's own work, its branch rules, and a testing hazard that will surprise you
 - [`agents/skills/command-metadata.md`](agents/skills/command-metadata.md) - adding or changing commands in `bin/`
 - [`agents/skills/install-scripts.md`](agents/skills/install-scripts.md) - working under `install/` or on system/user setup commands
 - [`agents/skills/shell-dev.md`](agents/skills/shell-dev.md) - editing the Quickshell desktop under `shell/`
