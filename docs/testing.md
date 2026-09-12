@@ -5,6 +5,9 @@ protocol test files speak, and the conventions that keep them runnable on any
 machine — including headless CI sandboxes with no compositor. The graphical
 acceptance suite is a separate thing that drives a live session in a disposable
 VM; see [`agents/skills/acceptance-tests.md`](../agents/skills/acceptance-tests.md).
+Headless is the easy case. On a machine that does have a compositor, the
+compositor-gated files run against whatever session is reachable, including the
+one you are sitting in; see [Compositor-dependent tests](#compositor-dependent-tests).
 
 ## Suite map
 
@@ -88,6 +91,26 @@ writing a core dump as debris.
 Gate only what needs gating — put `require_compositor` in files whose runtime
 half needs a live session, and keep static analysis of the same area in code
 that runs unconditionally before or beside it.
+
+### Run these in a VM, not on the desktop you are using
+
+The gate reads as protection for headless CI, and it is, but it says nothing
+about the machine that does have a compositor. There, the reachable session is
+the one you are working in. Sixteen files under `test/shell.d/` are gated this
+way and fourteen of them launch a real Quickshell against that session, so
+`./test/shell` and `./test/all` will draw second bars, panels, overlays, tray
+menus and lock surfaces on your own screen, one instance after another, for as
+long as the run takes. Nothing is written to your configuration and your own
+shell is never restarted, so the damage is only to whatever you were doing at
+the time, but it is startling if you did not expect it.
+
+Run the whole suite on a machine you are not using: a VM, a spare session, or
+over SSH with no compositor reachable, where every one of them skips. When
+working on your own desktop, run the file for the area you changed, which is
+what [`AGENTS.md`](../AGENTS.md) asks for anyway.
+
+The graphical acceptance suite under `test/acceptance.d/` is a separate thing
+and already says it needs a disposable VM. These do not, and they should.
 
 ## Unit-testing shell JavaScript from bash
 
