@@ -28,6 +28,20 @@ Upstream moves fast. In the first day after mirroring, `quattro` gained a commit
 
 Some work here fixes a defect in upstream's own code or documentation and is meant to be offered back. Those branches are cut from `quattro`, never from `fleet-main`, so they carry no fleet content and can become an upstream pull request unchanged. `fleet/document-live-session-tests` is one. Merging such a branch into `fleet-main` is fine and does not dirty the branch itself. Rebasing it onto `fleet-main` would ruin it.
 
+## Signed commits
+
+Sign every commit this fork adds to `fleet-main`. The signature has to verify on GitHub. What this fork produces is meant to run as root on machines that enrol, so who wrote a change must be checkable from the history alone.
+
+Commit with signing as the maintainer's git configuration already sets it up. If a commit fails to sign, stop and report the error. Never work around it with `--no-gpg-sign`, `-c commit.gpgsign=false` or a change to git configuration.
+
+Check before pushing. A signed commit shows a signature line and an unsigned one shows none:
+
+```bash
+git log --show-signature -1
+```
+
+Upstream's history is partly unsigned, which is expected. Fast-forwarding `quattro` creates no commits, so it needs no signature. Bringing new upstream commits into `fleet-main` is different. Once the branch requires signatures, GitHub blocks a pull request carrying unsigned commits whichever merge method is used, and only someone allowed to bypass the protection can merge it. That includes merging a clean branch cut from a newer `quattro` than `fleet-main` has already absorbed. That merge is the maintainer's call. Do not attempt it from a feature branch.
+
 ## What exists, and what does not
 
 Phase 0 is built and merged. A machine can record that it is centrally managed, and report what it recorded. That is all it does.

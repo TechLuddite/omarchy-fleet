@@ -81,6 +81,7 @@ guidance does not drift from the router.
 
 - Commits should be atomic: include only one coherent change or fix, and do not mix unrelated work.
 - Commit messages should be succinct and describe the change being made.
+- Sign every commit. The signed commits section of [`agents/skills/fleet.md`](agents/skills/fleet.md) covers how to check one and what to do when signing fails.
 
 # Helper Commands
 
