@@ -190,7 +190,11 @@ Each step is one atomic commit with its tests, following the repository's own ru
 
 Steps 1 through 3 are independently useful and independently revertable. Step 4 is the only one that changes anything a user sees, and only on an enrolled machine.
 
-Verify by enrolling a test VM by hand, confirming `omarchy fleet status` reports correctly, confirming the menu entry appears there and on no other machine, and confirming a factory reset leaves the record in place, since `/etc` rides the `@factory` snapshot the same way the kids mode marker does.
+Verify by enrolling a test VM by hand, confirming `omarchy fleet status` reports correctly, and confirming the menu entry appears there and on no other machine.
+
+A factory reset is two cases and they give opposite answers, so a single instruction to check it is a trap. `omarchy-system-factory-reset` swaps the running `@` for a fresh clone of `@factory`, and the installer takes that snapshot as the last phase of the install, after `omarchy-apply-system --first-install` has already run `install/config/all.sh`. A machine enrolled at install time from `OMARCHY_FLEET_*` therefore has its record inside the snapshot, and a reset restores it. A machine enrolled by hand afterwards writes the record into `@` after the snapshot was taken, and a reset erases it along with every other change made since installation, which is what the command's own header says it does.
+
+Verified on a booted VM: a machine enrolled by hand came back from a factory reset with no record and no `/etc/omarchy` directory at all. Verify the install-time case by enrolling at install time, and expect the hand-enrolled case to lose the record rather than keep it.
 
 ## Open questions
 

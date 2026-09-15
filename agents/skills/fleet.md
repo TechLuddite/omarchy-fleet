@@ -54,7 +54,27 @@ Phase 0 is built and merged. A machine can record that it is centrally managed, 
 
 There is no provider. Nothing reads a configuration repository, nothing verifies a signature, nothing reconciles, nothing runs on a timer. Enrolling a machine changes nothing about that machine. Do not describe it as though it does, in code comments, in command output or to a user.
 
-Unverified, and needing a booted machine rather than a container: that the menu entry appears only on an enrolled machine, and that the record survives a factory reset through the `@factory` snapshot.
+Both of the things a container could not show have now been checked on a booted machine, and one of them did not hold.
+
+The menu entry behaves. On an unenrolled machine the Setup menu runs Plugins straight into Security. After `sudo omarchy fleet enroll` the Fleet entry appears between them on the next open of the menu, with no shell restart, and selecting it runs `omarchy fleet status` in the floating terminal.
+
+The record does not survive a factory reset unless it was written during the install. `omarchy-system-factory-reset` swaps the running `@` for a fresh clone of `@factory`, and the installer takes that snapshot as its last phase, after `omarchy-apply-system --first-install` has already run `install/config/all.sh`. So an install-time enrolment is inside the snapshot and comes back, and a hand-made one afterwards is erased along with every other change since installation. A machine enrolled by hand was reset and came back with no record and no `/etc/omarchy` directory at all. `plans/fleet-enrolment.md` carries the detail. Do not test the install-time case by enrolling by hand, because the two paths answer differently.
+
+## A fleet build on a real machine loses to upstream on the first update
+
+Testing this work on a virtual machine means building an ISO with `--local-source` against this checkout, which puts the fleet code inside the `omarchy-dev` package. That is the name upstream publishes on its edge channel, and the installed system points its `[omarchy]` repository there. The generated package version is a commit count, so this fork's build loses to upstream's whenever upstream's development branch is ahead of the branch point, which is the normal state.
+
+The consequence, seen on two machines: one `pacman -Syu` upgraded `omarchy-dev` and `omarchy-settings-dev` to upstream's build and took `bin/omarchy-fleet`, `bin/omarchy-profile-fleet`, `install/config/fleet.sh`, the menu entry and the router's `fleet` group with them. No warning, first update after installation, and the locally built package was not left in the package cache to downgrade back to.
+
+An enrolled machine comes off worse. The upgrade removes the command and the predicate and leaves `/etc/omarchy/fleet.conf` behind, because no package owns that file, so the machine still calls itself centrally managed with nothing left that can read the claim.
+
+Until the fleet code ships as its own package with a name upstream does not publish, treat any machine built this way as valid only until it updates. Check the build on a machine before trusting a result from it:
+
+```bash
+pacman -Q omarchy-dev
+```
+
+A version whose hash is not a commit in this repository means the fleet code is already gone.
 
 ## Read the plans first
 
