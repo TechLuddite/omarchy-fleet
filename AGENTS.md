@@ -27,6 +27,8 @@ Three documentation trees, split by genre and audience:
 - `docs/` - reference on how the system is shaped (file layout, update pipeline, theming, shell architecture), for anyone working on the codebase; skills link here for depth
 - `manual/` - end-user documentation for using Omarchy, published; never codebase internals
 
+[`JOURNAL.md`](JOURNAL.md) sits outside those three and is this fork's own running record: what each session did, what is verified and what is not, and the hazards found the hard way. Read its handoff block before starting fleet work, and add an entry when you finish a session that changed what is known.
+
 # Style
 
 - In markdown documents (`plans/`, `docs/`, `manual/`), write full lines — no hard wrapping at 80 columns; break only at structural boundaries like headings and list items
