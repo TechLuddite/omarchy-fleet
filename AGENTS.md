@@ -5,6 +5,15 @@ is a pure upstream mirror and must never be committed to. `fleet-main` is the de
 branch and where changes land. Read
 [`agents/skills/fleet.md`](agents/skills/fleet.md) before your first commit.
 
+Opening a pull request needs both ends named. `gh` takes a fork's parent as the
+default base, and this clone carries an `upstream` remote, so a bare
+`gh pr create` aims at `omacom/omarchy` rather than at this fork. It has already
+done so once and failed only because there were no commits between the two.
+
+```bash
+gh pr create --repo TechLuddite/omarchy-fleet --base fleet-main --head <branch>
+```
+
 # Task Guides
 
 Deeper instructions for specific kinds of work live in `agents/skills/`. Read the
