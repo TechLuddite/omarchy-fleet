@@ -76,6 +76,8 @@ pacman -Q omarchy-dev
 
 A version whose hash is not a commit in this repository means the fleet code is already gone.
 
+The machines themselves are built from the installer fork, which carries `bin/omarchy-fleet-vm-make` and `bin/omarchy-fleet-vm-view` for the purpose. They are persistent rather than throwaway, which is what verifying a menu guard or a factory reset needs, and its `AGENTS.md` explains when to reach for them rather than for the three test routes that tear their machines down.
+
 ## Read the plans first
 
 `plans/fleet-enrolment.md` and `plans/fleet-agent-configuration.md` are the design record, in the shape of `plans/kids-passwords.md` from the kids mode work. They carry the scope, the model, the rejected approaches with their reasons, the threat model and the open questions. A change that contradicts one of them is either a mistake or a decision that belongs in the plan first.
